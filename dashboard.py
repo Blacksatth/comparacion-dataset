@@ -226,19 +226,27 @@ def cargar_datos(file):
 # ⚙️ SIDEBAR: CARGA DE ARCHIVOS
 # ==============================
 st.sidebar.header("📁 Carga de Archivos")
-modo = st.sidebar.radio("Selecciona el modo de carga:", ["Subir archivos", "Usar rutas por defecto"])
 
-if modo == "Subir archivos":
+# Verificar primero si los archivos por defecto existen
+archivos_disponibles = os.path.exists(FILE1_PATH) and os.path.exists(FILE2_PATH)
+
+if archivos_disponibles:
+    # Si los archivos existen, usar rutas por defecto automáticamente
+    file1, file2 = FILE1_PATH, FILE2_PATH
+    st.sidebar.success("✅ Usando archivos por defecto del repositorio")
+    st.sidebar.info(f"📄 BD1: `{FILE1_PATH}`\n📄 BD2: `{FILE2_PATH}`")
+    
+    # Opción para cambiar a modo manual si lo desea
+    usar_manual = st.sidebar.checkbox("📤 Cambiar a modo subir archivos", value=False)
+    if usar_manual:
+        file1 = st.sidebar.file_uploader("Sube el Primer Archivo (BD1 - Limpieza Auto)", type=["xlsx", "csv"])
+        file2 = st.sidebar.file_uploader("Sube el Segundo Archivo (BD2)", type=["xlsx", "csv"])
+else:
+    # Si no existen, mostrar opción de subir
+    st.sidebar.warning("⚠️ Archivos por defecto no encontrados")
+    st.sidebar.info("Por favor, sube los archivos manualmente:")
     file1 = st.sidebar.file_uploader("Sube el Primer Archivo (BD1 - Limpieza Auto)", type=["xlsx", "csv"])
     file2 = st.sidebar.file_uploader("Sube el Segundo Archivo (BD2)", type=["xlsx", "csv"])
-else:
-    # Verificar si los archivos por defecto existen
-    if os.path.exists(FILE1_PATH) and os.path.exists(FILE2_PATH):
-        file1, file2 = FILE1_PATH, FILE2_PATH
-    else:
-        file1, file2 = None, None
-        st.sidebar.warning(f"⚠️ Los archivos por defecto no se encontraron. Por favor, usa el modo 'Subir archivos'.")
-        st.sidebar.info(f"Archivos buscados:\n- {FILE1_PATH}\n- {FILE2_PATH}")
 
 st.sidebar.markdown("---")
 st.sidebar.header("🛠️ Opciones BD1 (Limpieza Avanzada)")
