@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
+import os
 from datetime import datetime
 
 # ==============================
@@ -225,13 +226,19 @@ def cargar_datos(file):
 # ⚙️ SIDEBAR: CARGA DE ARCHIVOS
 # ==============================
 st.sidebar.header("📁 Carga de Archivos")
-modo = st.sidebar.radio("Selecciona el modo de carga:", ["Usar rutas por defecto", "Subir archivos"])
+modo = st.sidebar.radio("Selecciona el modo de carga:", ["Subir archivos", "Usar rutas por defecto"])
 
 if modo == "Subir archivos":
     file1 = st.sidebar.file_uploader("Sube el Primer Archivo (BD1 - Limpieza Auto)", type=["xlsx", "csv"])
     file2 = st.sidebar.file_uploader("Sube el Segundo Archivo (BD2)", type=["xlsx", "csv"])
 else:
-    file1, file2 = FILE1_PATH, FILE2_PATH
+    # Verificar si los archivos por defecto existen
+    if os.path.exists(FILE1_PATH) and os.path.exists(FILE2_PATH):
+        file1, file2 = FILE1_PATH, FILE2_PATH
+    else:
+        file1, file2 = None, None
+        st.sidebar.warning(f"⚠️ Los archivos por defecto no se encontraron. Por favor, usa el modo 'Subir archivos'.")
+        st.sidebar.info(f"Archivos buscados:\n- {FILE1_PATH}\n- {FILE2_PATH}")
 
 st.sidebar.markdown("---")
 st.sidebar.header("🛠️ Opciones BD1 (Limpieza Avanzada)")
@@ -690,22 +697,26 @@ if file1 and file2:
                         else:
                             expander2.info("No hay valores exclusivos en BD2")
 
-        # ==============================
-        # 📤 DESCARGAR REPORTE
-        # ==============================
-        st.divider()
-        st.header("📤 Descargar Reporte Comparativo")
-        
-        # Reporte mejorado
-        reporte = f"""
+            # ==============================
+            # 📤 DESCARGAR REPORTE
+            # ==============================
+            st.divider()
+            st.header("📤 Descargar Reporte Comparativo")
+            
+            # Obtener nombres de archivo
+            file1_name = file1 if isinstance(file1, str) else (file1.name if hasattr(file1, 'name') else 'Archivo 1')
+            file2_name = file2 if isinstance(file2, str) else (file2.name if hasattr(file2, 'name') else 'Archivo 2')
+            
+            # Reporte mejorado
+            reporte = f"""
 ╔═══════════════════════════════════════════════════════════════╗
 ║          REPORTE COMPARADOR DE BASES DE DATOS                 ║
 ╚═══════════════════════════════════════════════════════════════╝
 
 📁 ARCHIVOS ANALIZADOS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Base de Datos 1: {file1}
-• Base de Datos 2: {file2}
+• Base de Datos 1: {file1_name}
+• Base de Datos 2: {file2_name}
 • Fecha del Reporte: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 • Estado de Imputación: {'ACTIVADA' if activar_imputacion else 'DESACTIVADA (Datos Originales)'}
 
@@ -739,19 +750,19 @@ BD2:
 📋 LOG DE PROCESAMIENTO BD1
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
-        if imputation_log:
-            if activar_imputacion:
-                reporte += "IMPUTACIÓN REALIZADA:\n"
-                for col, info in imputation_log.items():
-                    reporte += f"• {col}: {info.get('imputed', 0)} valores imputados ({info.get('method', 'N/A')})\n"
+            if imputation_log:
+                if activar_imputacion:
+                    reporte += "IMPUTACIÓN REALIZADA:\n"
+                    for col, info in imputation_log.items():
+                        reporte += f"• {col}: {info.get('imputed', 0)} valores imputados ({info.get('method', 'N/A')})\n"
+                else:
+                    reporte += "SIN IMPUTACIÓN - Valores faltantes preservados para análisis transparente:\n"
+                    for col, info in imputation_log.items():
+                        reporte += f"• {col}: {info.get('missing', 0)} valores faltantes preservados\n"
             else:
-                reporte += "SIN IMPUTACIÓN - Valores faltantes preservados para análisis transparente:\n"
-                for col, info in imputation_log.items():
-                    reporte += f"• {col}: {info.get('missing', 0)} valores faltantes preservados\n"
-        else:
-            reporte += "• No había valores faltantes en columnas numéricas\n"
+                reporte += "• No había valores faltantes en columnas numéricas\n"
 
-        reporte += f"""
+            reporte += f"""
 📈 ESTADÍSTICAS DESCRIPTIVAS BD1
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {df1.describe().to_string()}
@@ -766,26 +777,26 @@ geográficos y detalles de conciliación, consulte la aplicación
 interactiva.
 ═══════════════════════════════════════════════════════════════
 """
-        
-        col_download1, col_download2 = st.columns(2)
-        
-        with col_download1:
-            st.download_button(
-                "📥 Descargar Reporte TXT",
-                data=reporte,
-                file_name=f"reporte_comparador_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                mime="text/plain"
-            )
-        
-        with col_download2:
-            # Opción para descargar datos limpios
-            csv1 = df1.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                "📥 Descargar BD1 Limpia (CSV)",
-                data=csv1,
-                file_name=f"bd1_limpia_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
-            )
+            
+            col_download1, col_download2 = st.columns(2)
+            
+            with col_download1:
+                st.download_button(
+                    "📥 Descargar Reporte TXT",
+                    data=reporte,
+                    file_name=f"reporte_comparador_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain"
+                )
+            
+            with col_download2:
+                # Opción para descargar datos limpios
+                csv1 = df1.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    "📥 Descargar BD1 Limpia (CSV)",
+                    data=csv1,
+                    file_name=f"bd1_limpia_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
 
     else:
         st.error("❌ Error al procesar los archivos. Verifica que sean válidos.")
