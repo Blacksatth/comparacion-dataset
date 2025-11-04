@@ -65,6 +65,12 @@ def limpiar_bd1(file_path_or_upload, manual_header_row=None, metodo_imputacion='
 
         # 2. Cargar el DataFrame
         if isinstance(file_path_or_upload, str):
+            # Verificar que el archivo existe antes de intentar leerlo
+            if not os.path.exists(file_path_or_upload):
+                raise FileNotFoundError(f"El archivo no existe: {file_path_or_upload}")
+            if not os.path.isfile(file_path_or_upload):
+                raise ValueError(f"La ruta no es un archivo: {file_path_or_upload}")
+            
             if file_path_or_upload.endswith(".csv"):
                 df = pd.read_csv(file_path_or_upload, header=header_row)
             else:
@@ -185,8 +191,13 @@ def limpiar_bd1(file_path_or_upload, manual_header_row=None, metodo_imputacion='
 
         return df, imputation_log
 
+    except FileNotFoundError as e:
+        st.error(f"❌ Error: Archivo no encontrado. {e}")
+        st.info("💡 Sugerencia: Verifica que los archivos estén en el repositorio o usa el modo 'Subir archivos'.")
+        return None, {}
     except Exception as e:
         st.error(f"❌ Error al limpiar la BD1: {e}")
+        st.info(f"💡 Tipo de error: {type(e).__name__}")
         return None, {}
 
 # ==============================
@@ -199,6 +210,12 @@ def cargar_datos(file):
         return None
     try:
         if isinstance(file, str):
+            # Verificar que el archivo existe antes de intentar leerlo
+            if not os.path.exists(file):
+                raise FileNotFoundError(f"El archivo no existe: {file}")
+            if not os.path.isfile(file):
+                raise ValueError(f"La ruta no es un archivo: {file}")
+            
             if file.endswith(".csv"):
                 df = pd.read_csv(file)
             else:
@@ -218,8 +235,14 @@ def cargar_datos(file):
             .str.replace(r"[^A-Za-z0-9_]", "", regex=True)
         )
         return df
+    except FileNotFoundError as e:
+        file_name = file if isinstance(file, str) else (file.name if hasattr(file, 'name') else 'archivo')
+        st.error(f"❌ Error: Archivo no encontrado: {file_name}")
+        st.info("💡 Sugerencia: Verifica que los archivos estén en el repositorio o usa el modo 'Subir archivos'.")
+        return None
     except Exception as e:
-        st.error(f"❌ Error al cargar {file}: {e}")
+        file_name = file if isinstance(file, str) else (file.name if hasattr(file, 'name') else 'archivo')
+        st.error(f"❌ Error al cargar {file_name}: {e}")
         return None
 
 # ==============================
@@ -227,8 +250,26 @@ def cargar_datos(file):
 # ==============================
 st.sidebar.header("📁 Carga de Archivos")
 
-# Verificar primero si los archivos por defecto existen
-archivos_disponibles = os.path.exists(FILE1_PATH) and os.path.exists(FILE2_PATH)
+# Función para verificar si un archivo es realmente accesible
+def verificar_archivo(archivo_path):
+    """Verifica que el archivo existe y es accesible"""
+    try:
+        if not os.path.exists(archivo_path):
+            return False
+        # Intentar abrir el archivo para verificar que es accesible
+        if archivo_path.endswith(".xlsx"):
+            # Solo verificar que existe, no cargarlo completamente
+            return os.path.isfile(archivo_path) and os.access(archivo_path, os.R_OK)
+        elif archivo_path.endswith(".csv"):
+            return os.path.isfile(archivo_path) and os.access(archivo_path, os.R_OK)
+        return False
+    except Exception:
+        return False
+
+# Verificar primero si los archivos por defecto existen y son accesibles
+archivo1_ok = verificar_archivo(FILE1_PATH)
+archivo2_ok = verificar_archivo(FILE2_PATH)
+archivos_disponibles = archivo1_ok and archivo2_ok
 
 if archivos_disponibles:
     # Si los archivos existen, usar rutas por defecto automáticamente
@@ -243,7 +284,11 @@ if archivos_disponibles:
         file2 = st.sidebar.file_uploader("Sube el Segundo Archivo (BD2)", type=["xlsx", "csv"])
 else:
     # Si no existen, mostrar opción de subir
-    st.sidebar.warning("⚠️ Archivos por defecto no encontrados")
+    st.sidebar.warning("⚠️ Archivos por defecto no encontrados o no accesibles")
+    if not archivo1_ok:
+        st.sidebar.error(f"❌ No se encontró: {FILE1_PATH}")
+    if not archivo2_ok:
+        st.sidebar.error(f"❌ No se encontró: {FILE2_PATH}")
     st.sidebar.info("Por favor, sube los archivos manualmente:")
     file1 = st.sidebar.file_uploader("Sube el Primer Archivo (BD1 - Limpieza Auto)", type=["xlsx", "csv"])
     file2 = st.sidebar.file_uploader("Sube el Segundo Archivo (BD2)", type=["xlsx", "csv"])
